@@ -1,0 +1,10 @@
+.address-capture-ul {
+  position: absolute;
+  z-index: 100;
+  max-height: 20%;
+  background: white;
+  min-width: 500px;
+}
+.address-capture-ul .address-capture-li-arrow {
+  padding-left: 10px;
+}

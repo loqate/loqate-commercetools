@@ -1,0 +1,164 @@
+name: Build and Deploy to Studio for Project
+
+on:
+    workflow_call:
+        inputs:
+            should_deploy_build:
+                description: 'Should the build be deployed/activated after upload?'
+                required: true
+                type: string
+    workflow_dispatch:
+        inputs:
+            should_deploy_build:
+                description: 'Should the build be deployed/activated after upload?'
+                required: true
+                type: choice
+                options:
+                    - 'true'
+                    - 'false'
+
+# Cancel previous runs of this workflow (no matter the context)
+concurrency:
+    group: deploy-to-studio
+    cancel-in-progress: true
+
+env:
+    PROJECT: poc
+    SHOULD_DEPLOY_BUILD: ${{ inputs.should_deploy_build || github.event.inputs.should_deploy_build }}
+
+jobs:
+    Build-And-Deploy:
+        name: Build and deploy to Studio
+        runs-on: ubuntu-latest
+        steps:
+            - name: Capture start time
+              id: capture_start_time
+              run: echo "job_start_time=$(date +%s)" >> $GITHUB_OUTPUT
+
+            - name: Print inputs
+              run: |
+                  echo "Should Deploy Build: $SHOULD_DEPLOY_BUILD"
+
+            - name: Install homebrew
+              run: |
+                  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+            - name: Add homebrew to PATH
+              run: |
+                  eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+                  echo "HOMEBREW_PREFIX=$(/home/linuxbrew/.linuxbrew/bin/brew --prefix)" >> $GITHUB_ENV
+                  echo "HOMEBREW_CELLAR=$(/home/linuxbrew/.linuxbrew/bin/brew --cellar)" >> $GITHUB_ENV
+                  echo "HOMEBREW_REPOSITORY=$(/home/linuxbrew/.linuxbrew/bin/brew --repository)" >> $GITHUB_ENV
+                  echo "PATH=$(/home/linuxbrew/.linuxbrew/bin/brew --prefix)/bin:$(/home/linuxbrew/.linuxbrew/bin/brew --prefix)/sbin:$PATH" >> $GITHUB_ENV
+
+            - name: Install frontastic-cli
+              run: |
+                  brew tap frontasticgmbh/tap
+                  brew install frontastic-cli
+
+            - name: Checkout repo
+              uses: actions/checkout@v4
+              with:
+                  # This is required to get the base_ref
+                  # ref: ${{ github.event.pull_request.head.sha }}
+                  fetch-depth: 1
+
+            - name: Set node version for running coFe
+              uses: actions/setup-node@v4
+              with:
+                  node-version-file: 'packages/poc/backend/.nvmrc'
+                  cache: 'yarn'
+                  cache-dependency-path: 'packages/poc/backend/yarn.lock'
+
+            - name: Extract Node.js major version from .nvmrc
+              id: node_version
+              run: |
+                  full_version=$(cat packages/poc/backend/.nvmrc)
+                  major_version=$(echo $full_version | cut -d'.' -f1)
+                  echo "Major Node.js version: $major_version"
+                  echo "version=$major_version" >> $GITHUB_OUTPUT
+
+            - name: Install yarn
+              run: npm i -g yarn
+
+            - name: Install dependencies
+              working-directory: packages/poc/backend
+              run: yarn install --prefer-offline --frozen-lockfile
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+
+            - name: Build dependencies
+              id: build_dependencies
+              working-directory: packages/poc/backend
+              continue-on-error: true
+              run: |
+                  yarn build
+                  build_successful=$(if [ $? -eq 0 ]; then echo true; else echo false; fi)
+                  end_time=$(date +%s)
+                  echo "build_successful=$build_successful" >> $GITHUB_OUTPUT
+
+            - name: Deploy to Studio
+              env:
+                  FRONTASTIC_CLI_CLIENT_ID: ${{ secrets.STUDIO_API_KEY_ID  }}
+                  FRONTASTIC_CLI_CLIENT_SECRET: ${{ secrets.STUDIO_API_KEY_SECRET  }}
+              run: |
+                  BRANCH=${GITHUB_REF#refs/heads/}
+                  REVISION=${GITHUB_SHA}
+                  BUILD_SUCCESSFUL=${{ steps.build_dependencies.outputs.build_successful }}
+                  VERSION_NUMBER=$(date +'%Y.%m.%d.%H.%M')
+                  JOB_START_TIME=${{ steps.capture_start_time.outputs.job_start_time }}
+                  CURRENT_TIME=$(date +%s)
+                  BUILD_DURATION=$((CURRENT_TIME - JOB_START_TIME))
+                  BUILD_TIME=$(date -u -d "@$JOB_START_TIME" +"%Y-%m-%dT%H:%M:%SZ")
+                  NODE_JS_VERSION=${{ steps.node_version.outputs.version }}
+                  BUILD_URL=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+                  BUILD_LOG="View full build logs at $BUILD_URL"
+                  STUDIO_URL=${{ vars.STUDIO_URL }}
+                  BUNDLE_PATH=packages/${{ env.PROJECT }}/backend/build/bundle.min.js
+                  BUNDLE_MAP_PATH=packages/${{ env.PROJECT }}/backend/build/bundle.min.js.map
+
+                  echo "BRANCH: $BRANCH"
+                  echo "PROJECT: $PROJECT"
+                  echo "REVISION: $REVISION"
+                  echo "BUILD_LOG: $BUILD_LOG"
+                  echo "BUILD_SUCCESSFUL: $BUILD_SUCCESSFUL"
+                  echo "VERSION_NUMBER: $VERSION_NUMBER"
+                  echo "BUILD_TIME: $BUILD_TIME"
+                  echo "BUILD_DURATION: $BUILD_DURATION"
+                  echo "NODE_JS_VERSION: $NODE_JS_VERSION"
+                  echo "SHOULD_DEPLOY BUILD: $SHOULD_DEPLOY_BUILD"
+                  echo "STUDIO_URL: $STUDIO_URL"
+                  echo "BUILD_URL: $BUILD_URL"
+                  echo "BUNDLE_PATH: $BUNDLE_PATH"
+                  echo "BUNDLE_MAP_PATH: $BUNDLE_MAP_PATH"
+                  echo "FRONTASTIC_CLI_CLIENT_ID: $FRONTASTIC_CLI_CLIENT_ID"
+                  echo "FRONTASTIC_CLI_CLIENT_SECRET: $FRONTASTIC_CLI_CLIENT_SECRET"
+
+                  frontastic upload \
+                      --project $PROJECT \
+                      --branch $BRANCH \
+                      --revision $REVISION \
+                      --versionNumber $VERSION_NUMBER \
+                      --nodeJsVersion $NODE_JS_VERSION \
+                      --buildSuccessful $BUILD_SUCCESSFUL \
+                      --buildTime $BUILD_TIME \
+                      --buildDuration $BUILD_DURATION  \
+                      --buildLog "$BUILD_LOG" \
+                      --deploy $SHOULD_DEPLOY_BUILD \
+                      --extensionBundleFilePath $BUNDLE_PATH \
+                      --extensionBundleMapFilePath $BUNDLE_MAP_PATH \
+                      --url $STUDIO_URL \
+                      /
+
+            - uses: actions/upload-artifact@v3
+              name: Upload backend build artifacts
+              with:
+                  name: backend-build-bundle-${{ env.PROJECT }}
+                  path: packages/${{ env.PROJECT }}/backend/build
+                  retention-days: 5
+
+            - name: Fail workflow if build has failed
+              if: steps.build_dependencies.outputs.build_successful == false
+              run: |
+                  echo "Build was unsuccessful! Exiting..."
+                  exit 1

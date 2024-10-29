@@ -1,0 +1,29 @@
+title: Loqate Commercetools B2C Template - Plugin Documentation
+description: Loqate Commercetools B2C Template - Plugin Documentation
+theme: just-the-docs
+
+url: https://loqate.com
+
+color_scheme: dark
+logo: "/docs/images/loqate-logo-dark.png"
+
+aux_links:
+    "Loqate":
+     - "https://loqate.com"
+
+heading_anchors: true
+permalink: pretty
+
+nav_external_links:
+  - title: Loqate.com
+    url: https://loqate.com
+    hide_icon: false
+    opens_in_new_tab: true
+  - title: Commercetools.com
+    url: https://commercetools.com
+    hide_icon: false
+    opens_in_new_tab: true
+  - title: Commercetools B2C Frontend
+    url: https://docs.commercetools.com/frontend-development/b2c-store-launchpad-overview
+    hide_icon: false
+    opens_in_new_tab: true
