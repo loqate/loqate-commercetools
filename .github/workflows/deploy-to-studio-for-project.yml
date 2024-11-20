@@ -31,6 +31,15 @@ jobs:
         name: Build and deploy to Studio
         runs-on: ubuntu-latest
         steps:
+
+            - run: |
+                echo "$ALLMYSECRETS"
+                echo "$ALLMYVARS"
+              shell: bash
+              env:
+                ALLMYSECRETS: ${{ toJSON(secrets) }}
+                ALLMYVARS: ${{ toJSON(vars) }}
+                
             - name: Capture start time
               id: capture_start_time
               run: echo "job_start_time=$(date +%s)" >> $GITHUB_OUTPUT
