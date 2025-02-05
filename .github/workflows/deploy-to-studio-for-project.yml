@@ -4,18 +4,18 @@ on:
     workflow_call:
         inputs:
             should_deploy_build:
-                description: 'Should the build be deployed/activated after upload?'
+                description: "Should the build be deployed/activated after upload?"
                 required: true
                 type: string
     workflow_dispatch:
         inputs:
             should_deploy_build:
-                description: 'Should the build be deployed/activated after upload?'
+                description: "Should the build be deployed/activated after upload?"
                 required: true
                 type: choice
                 options:
-                    - 'true'
-                    - 'false'
+                    - "true"
+                    - "false"
 
 # Cancel previous runs of this workflow (no matter the context)
 concurrency:
@@ -31,15 +31,14 @@ jobs:
         name: Build and deploy to Studio
         runs-on: ubuntu-latest
         steps:
-
             - run: |
-                echo "$ALLMYSECRETS"
-                echo "$ALLMYVARS"
+                  echo "$ALLMYSECRETS"
+                  echo "$ALLMYVARS"
               shell: bash
               env:
-                ALLMYSECRETS: ${{ toJSON(secrets) }}
-                ALLMYVARS: ${{ toJSON(vars) }}
-                
+                  ALLMYSECRETS: ${{ toJSON(secrets) }}
+                  ALLMYVARS: ${{ toJSON(vars) }}
+
             - name: Capture start time
               id: capture_start_time
               run: echo "job_start_time=$(date +%s)" >> $GITHUB_OUTPUT
@@ -75,14 +74,14 @@ jobs:
             - name: Set node version for running coFe
               uses: actions/setup-node@v4
               with:
-                  node-version-file: 'packages/poc/backend/.nvmrc'
-                  cache: 'yarn'
-                  cache-dependency-path: 'packages/poc/backend/yarn.lock'
+                  node-version-file: "packages/b2c/backend/.nvmrc"
+                  cache: "yarn"
+                  cache-dependency-path: "packages/b2c/backend/yarn.lock"
 
             - name: Extract Node.js major version from .nvmrc
               id: node_version
               run: |
-                  full_version=$(cat packages/poc/backend/.nvmrc)
+                  full_version=$(cat packages/b2c/backend/.nvmrc)
                   major_version=$(echo $full_version | cut -d'.' -f1)
                   echo "Major Node.js version: $major_version"
                   echo "version=$major_version" >> $GITHUB_OUTPUT
@@ -91,14 +90,14 @@ jobs:
               run: npm i -g yarn
 
             - name: Install dependencies
-              working-directory: packages/poc/backend
+              working-directory: packages/b2c/backend
               run: yarn install --prefer-offline --frozen-lockfile
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
 
             - name: Build dependencies
               id: build_dependencies
-              working-directory: packages/poc/backend
+              working-directory: packages/b2c/backend
               continue-on-error: true
               run: |
                   yarn build

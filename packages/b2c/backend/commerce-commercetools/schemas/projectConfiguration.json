@@ -123,6 +123,15 @@
       ]
     },
     {
+      "name": "Loqate - General Settings",
+      "fields": [
+        {
+          "label": "API Key",
+          "field": "EXTENSION_LOQATE_API_KEY"
+        }
+      ]
+    },
+    {
       "name": "Adyen Payment extension",
       "fields": [
         {
