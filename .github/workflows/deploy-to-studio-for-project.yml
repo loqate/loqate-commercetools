@@ -159,7 +159,7 @@ jobs:
                       --url $STUDIO_URL \
                       /
 
-            - uses: actions/upload-artifact@v3
+            - uses: actions/upload-artifact@v4
               name: Upload backend build artifacts
               with:
                   name: backend-build-bundle-${{ env.PROJECT }}
