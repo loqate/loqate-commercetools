@@ -23,7 +23,7 @@ concurrency:
     cancel-in-progress: true
 
 env:
-    PROJECT: poc
+    PROJECT: b2c
     SHOULD_DEPLOY_BUILD: ${{ inputs.should_deploy_build || github.event.inputs.should_deploy_build }}
 
 jobs:
